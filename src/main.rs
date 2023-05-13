@@ -72,6 +72,9 @@ struct PlayerEyes;
 #[derive(Component)]
 struct PlayerLegs;
 
+#[derive(Component)]
+struct PlayerGroundSensor;
+
 fn spawn_player(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
@@ -98,14 +101,13 @@ fn spawn_player(
             Vec2::new(0.0, -195.0), 
             Vec2::new(0.0, 0.0), 
             300.0
-        ), 
+        ),
         Velocity::default(),
         LockedAxes::ROTATION_LOCKED_Z, 
         GravityScale(3.0),
         ActiveEvents::COLLISION_EVENTS,
         Name::new("Player")
     )).id();
-
 
     commands.spawn((PlayerEyes, SpriteBundle {
         texture: asset_server.load("angry_eyes.png"),
@@ -120,21 +122,42 @@ fn spawn_player(
     );
 
     commands.entity(player).with_children(|parent| {
-        parent.spawn((PlayerLegs, SpriteBundle {
-            texture: asset_server.load("legs.png"),
-            sprite: Sprite {
-                anchor: Anchor::TopCenter,
+        parent.spawn((
+            PlayerLegs, 
+            SpriteBundle {
+                texture: asset_server.load("legs.png"),
+                sprite: Sprite {
+                    anchor: Anchor::TopCenter,
+                    ..default()
+                },
+                transform: Transform {
+                    translation: Vec3::new(0.0, -330.0, 1.0),
+                    scale: Vec3::new(2.1, 2.1, 0.1),
+                    ..default()
+                },
                 ..default()
-            },
-            transform: Transform {
-                translation: Vec3::new(0.0, -330.0, 1.0),
-                scale: Vec3::new(2.1, 2.1, 0.1),
-                ..default()
-            },
-            ..default()
-        }, 
-            Name::new("Legs"))
+            }, 
+            Name::new("Legs"),
+            )
         );
+
+        parent.spawn((
+            PlayerGroundSensor,
+            SpatialBundle {
+                transform: Transform {
+                    translation: Vec3::new(0.0, -50.0, 1.0),
+                    scale: Vec3::new(2.1, 2.1, 0.1),
+                    ..default()
+                },
+                ..default()
+            },
+            Name::new("Ground sensor"),
+            Collider::ball(
+                70.0
+            ),
+            Sensor,
+            ActiveEvents::COLLISION_EVENTS
+        ));
     });
 }
 
@@ -214,22 +237,26 @@ fn follow_eyes(
     eyes_transform.translation += delta / 2.0;
 }
 
-//TODO: create a detection collider for detecting the ground only
+//TODO: make the platforms form
+//TODO: learn about the line renderer and code the gun
+
 fn ground_player(
     mut collision_events: EventReader<CollisionEvent>,
-    mut player_query: Query<(Entity, &mut PlayerJump), With<PlayerJump>>,
+    sensor_query: Query<Entity, With<PlayerGroundSensor>>,
+    mut player_jump_query: Query<&mut PlayerJump, Without<PlayerGroundSensor>>,
 ) {
-    let (player, mut player_jump) = player_query.single_mut();
+    let sensor = sensor_query.single();
+    let mut player_jump = player_jump_query.single_mut();
 
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(h1, h2, _event_flag) = collision_event {
-            if h1 == &player || h2 == &player {
+            if h1 == &sensor || h2 == &sensor {
                 player_jump.grounded = true;
             }
         }
 
         if let CollisionEvent::Stopped(h1, h2, _event_flag) = collision_event {
-            if h1 == &player || h2 == &player {
+            if h1 == &sensor || h2 == &sensor {
                 player_jump.grounded = false;
             }
         }
