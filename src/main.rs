@@ -10,21 +10,26 @@ fn main() {
     .add_plugins(DefaultPlugins)
     .add_plugin(WorldInspectorPlugin::new())
     .add_startup_system(create_camera)
+    .add_system(camera_follow)
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
-    .add_plugin(RapierDebugRenderPlugin::default())
+    // .add_plugin(RapierDebugRenderPlugin::default())
     .add_plugin(background::BackgroundPlugin)
     .add_startup_system(create_starting_platform)
+    .add_system(create_platforms)
     .add_startup_system(spawn_player)
     .add_system(move_player)
     .add_system(jump_player)
     .add_system(follow_eyes)
     .register_type::<PlayerMove>()
     .register_type::<PlayerJump>()
+    .register_type::<Platform>()
     .add_system(ground_player)
+    .insert_resource(CurrentPlatform(None))
+    .add_system(delete_platform)
     .run();
 }
 #[derive(Component)]
-struct MyGameCamera;
+pub struct MyGameCamera;
 
 fn create_camera(mut commands: Commands) {
     commands.spawn((
@@ -34,9 +39,28 @@ fn create_camera(mut commands: Commands) {
     ));
 }
 
+fn camera_follow(
+    mut camera_query: Query<&mut Transform, (Without<PlayerMove>, With<MyGameCamera>)>,
+    player_query: Query<&Transform, With<PlayerMove>>
+) {
+    let mut camera = camera_query.single_mut();
+    let player = player_query.single();
 
-#[derive(Component)]
-struct Platform;
+    let delta = player.translation - camera.translation;
+    camera.translation = Vec3::new(
+        camera.translation.x + delta.x * 0.1,
+        camera.translation.y + delta.y * 0.1, 
+        camera.translation.z
+    )
+}
+
+#[derive(Resource)]
+struct CurrentPlatform(Option<Entity>);
+
+#[derive(Component, Reflect)]
+struct Platform {
+    player_touched: bool,
+} 
 
 fn create_starting_platform(
     asset_server: Res<AssetServer>,
@@ -45,12 +69,38 @@ fn create_starting_platform(
     commands.spawn(create_platform(&asset_server, Transform::from_xyz(0.0, -150.0, 1.0)));
 }
 
+fn create_platforms(
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    platforms: Query<&Transform, With<Platform>>,
+)  {
+
+    let platform_count = platforms.iter().len();
+
+    if platform_count == 1 {
+        let last_platform = platforms.single();
+
+        let random_dir = -1.0;
+
+        commands.spawn(create_platform(
+            &asset_server, 
+            Transform::from_xyz(
+                last_platform.translation.x + 450.0 * random_dir, 
+                last_platform.translation.y + 80.0, 
+                1.0
+            )
+        ));
+    }
+}
+
 fn create_platform(asset_server: &AssetServer, transform: Transform) -> (SpriteBundle, Platform, RigidBody, Collider, Name) {
     (SpriteBundle {
         texture: asset_server.load("platform.png"),
         transform,
         ..default()
-    }, Platform, RigidBody::Fixed, Collider::cuboid(154.0, 38.0), Name::new("Platform"))
+    }, Platform {
+        player_touched: false
+    }, RigidBody::Fixed, Collider::cuboid(154.0, 38.0), Name::new("Platform"))
 }
 
 #[derive(Component, Reflect)]
@@ -86,7 +136,7 @@ fn spawn_player(
         seconds_to_stop_after_key_release: 0.3,
     }, PlayerJump {
         grounded: true,
-        jump_force: 240.0,
+        jump_force: 300.0,
     }, SpriteBundle {
         texture: asset_server.load("cupcake.png"),
         transform: Transform {
@@ -240,10 +290,41 @@ fn follow_eyes(
 //TODO: make the platforms form
 //TODO: learn about the line renderer and code the gun
 
+fn delete_platform(
+    platforms: Query<(Entity, &Transform), With<Platform>>,
+    current_platform: ResMut<CurrentPlatform>,
+    mut commands: Commands
+) {
+    if platforms.iter().len() == 1 { return; }
+
+    let mut lowest_platform: Option<(Entity, Transform)> = None;
+    let mut lowest_platform_y = f32::INFINITY;
+
+    for  (platform, transform) in platforms.iter() {
+        if transform.translation.y < lowest_platform_y {
+            lowest_platform_y = transform.translation.y;
+            lowest_platform = Some((platform, *transform));
+        }
+    }
+
+    if let Some((lowest_platform, _)) = lowest_platform {
+        if let Some(standing_platform) = current_platform.0 {    
+
+            if lowest_platform != standing_platform {
+                commands.entity(lowest_platform).despawn();
+            }
+        }
+    } else {
+        panic!("lowest platform not found")
+    }
+}
+
 fn ground_player(
     mut collision_events: EventReader<CollisionEvent>,
     sensor_query: Query<Entity, With<PlayerGroundSensor>>,
     mut player_jump_query: Query<&mut PlayerJump, Without<PlayerGroundSensor>>,
+    mut platforms: Query<(Entity, &mut Platform), With<Platform>>,
+    mut current_platform: ResMut<CurrentPlatform>
 ) {
     let sensor = sensor_query.single();
     let mut player_jump = player_jump_query.single_mut();
@@ -252,6 +333,14 @@ fn ground_player(
         if let CollisionEvent::Started(h1, h2, _event_flag) = collision_event {
             if h1 == &sensor || h2 == &sensor {
                 player_jump.grounded = true;
+
+                for (entity, mut platform) in platforms.iter_mut() {
+                    if h1 == &entity || h2 == &entity {
+                        platform.player_touched = true;
+                        current_platform.as_mut().0 = Some(entity);
+                        break;
+                    }
+                }
             }
         }
 
