@@ -1,11 +1,10 @@
 use bevy::{prelude::*, window::*};
 
-use crate::MyGameCamera;
-
 #[derive(Component)]
 struct Background {
     iteration: i32,
 }
+
 
 fn create_background(
     mut commands: Commands,
@@ -30,14 +29,14 @@ fn create_background(
 
 fn animate_background(
     mut background_query: Query<(&mut Background, &mut Transform)>,
-    camera_query: Query<&Transform, (With<MyGameCamera>, Without<Background>)>
+    background_follows_query: Query<&Transform, (With<BackgroundFollows>, Without<Background>)>
 ) {
     let (mut background, mut transform) = background_query.single_mut();
-    let camera_position = camera_query.single();
+    let background_follows = background_follows_query.single();
 
     background.iteration += 1;
     transform.rotation.z = ((background.iteration as f32) / 50.0).sin() / 10.0;
-    transform.translation = Vec3::new(camera_position.translation.x, camera_position.translation.y, transform.translation.z)
+    transform.translation = Vec3::new(background_follows.translation.x, background_follows.translation.y, transform.translation.z)
 }
 
 fn update_background_image_size(resize_event: Res<Events<WindowResized>>, mut background_query: Query<&mut Transform, With<Background>>) {
@@ -50,10 +49,16 @@ fn update_background_image_size(resize_event: Res<Events<WindowResized>>, mut ba
     }
 }
 
+
+#[derive(Component)]
+pub struct BackgroundFollows;
+
 pub struct BackgroundPlugin;
 
 impl Plugin for BackgroundPlugin {
   fn build(&self, app: &mut App) {
-    app.add_system(animate_background).add_system(update_background_image_size).add_startup_system(create_background);
+    app
+        .add_system(animate_background)
+        .add_system(update_background_image_size).add_startup_system(create_background);
   }
 }
