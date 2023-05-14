@@ -78,11 +78,56 @@ fn rocket_launcher_follows_mouse(
         world_position.y - rocket_launcher_holder.translation.y,
     );
 
-    let unit_vector = delta.normalize();
+    let normalized_delta = delta.normalize();
 
-    let angle = unit_vector.y.atan2(unit_vector.x);
+    let angle = normalized_delta.y.atan2(normalized_delta.x);
 
     rocket_launcher.rotation = Quat::from_rotation_z(angle + PI / 2.0);
+}
+
+#[derive(Component)]
+struct Rocket;
+
+fn rocket_launcher_shoots(
+    buttons: Res<Input<MouseButton>>,
+    rocket_launcher_query: Query<&Transform, (With<RocketLauncher>, Without<RocketLauncherHolder>)>,
+    rocket_launcher_holder_query: Query<
+        &Transform,
+        (With<RocketLauncherHolder>, Without<RocketLauncher>),
+    >,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    let Ok(rocket_launcher) = rocket_launcher_query.get_single() else {
+        return;
+    };
+
+    let Ok(rocket_launcher_holder) = rocket_launcher_holder_query.get_single() else {
+        return;
+    };
+
+    let direction_angle = Quat::to_euler(rocket_launcher.rotation, EulerRot::XYZ).2;
+
+    let direction = Vec2::new(f32::sin(direction_angle), -f32::cos(direction_angle));
+
+    if buttons.just_pressed(MouseButton::Left) {
+        commands.spawn((
+            Rocket,
+            SpriteBundle {
+                texture: asset_server.load("rocket.png"),
+                transform: Transform {
+                    translation: Vec3::new(
+                        rocket_launcher_holder.translation.x + direction.x * 50.0,
+                        rocket_launcher_holder.translation.y + direction.y * 50.0,
+                        1.0,
+                    ),
+                    scale: Vec3::new(0.2, 0.2, 0.1),
+                    ..default()
+                },
+                ..default()
+            },
+        ));
+    }
 }
 
 pub struct RocketLauncherHolderSpawns(pub Entity);
@@ -92,6 +137,7 @@ impl Plugin for RocketLauncherPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_rocket_launcher)
             .add_system(rocket_launcher_follows_mouse)
+            .add_system(rocket_launcher_shoots)
             .add_event::<RocketLauncherHolderSpawns>();
     }
 }

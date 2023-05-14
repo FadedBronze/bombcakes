@@ -9,7 +9,7 @@ struct Background {
 
 fn create_background(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut transform = Transform {
-        scale: Vec3::new(1.0, 1.0, 1.0),
+        scale: Vec3::new(1.0, 1.0, -1.0),
         ..default()
     };
     transform.rotate_z(5.0);

@@ -6,6 +6,40 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.10.1"
 bevy_rapier2d = { version = "0.21.0", features = [ "simd-stable", "debug-render-2d" ] }
-bevy-inspector-egui = "0.18.3"
+
+[dependencies.bevy-inspector-egui]
+version = "0.18.3"
+default-features = false
+bevy_pbr = false
+
+[dependencies.bevy]
+version = "0.10.1"
+default-features = false
+# These are the remaining default features other than `bevy_audio` and `vorbis`
+features = [
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_winit", 
+  "animation",
+  "bevy_asset",
+  "bevy_scene",
+  "bevy_winit",
+  "bevy_gilrs",
+  "png",
+  "hdr",
+  "filesystem_watcher",
+  "x11",
+  "bevy_scene",
+  "bevy_core_pipeline", 
+  "bevy_text", 
+  "bevy_ui",   
+]
+
+[dependencies.bevy_kira_audio]
+version = "0.15.0"
+default-features = false
+features = [
+  "wav",
+  "mp3",
+]

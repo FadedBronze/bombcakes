@@ -4,9 +4,7 @@ use bevy_rapier2d::prelude::*;
 use crate::player::PlayerLandedOnEvent;
 
 #[derive(Component, Reflect)]
-struct Platform {
-    player_touched: bool,
-}
+struct Platform;
 
 fn create_starting_platform(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(create_platform(
@@ -48,9 +46,7 @@ fn create_platform(
             transform,
             ..default()
         },
-        Platform {
-            player_touched: false,
-        },
+        Platform,
         RigidBody::Fixed,
         Collider::cuboid(154.0, 38.0),
         Name::new("Platform"),
