@@ -146,6 +146,7 @@ fn rocket_launcher_shoots(
                 ),
                 ..default()
             },
+            Name::new("Rocket")
         ));
     }
 }

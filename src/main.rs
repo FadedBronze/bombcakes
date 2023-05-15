@@ -3,6 +3,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_kira_audio::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+mod arms;
 mod background;
 mod camera;
 mod platform;
@@ -23,12 +24,13 @@ fn main() {
         .add_plugin(camera::GameCameraPlugin)
         .add_plugin(rocket_launcher::RocketLauncherPlugin)
         .add_plugin(AudioPlugin)
+        .add_plugin(arms::ArmsPlugin)
         .add_plugin(RapierDebugRenderPlugin::default())
-        // .add_startup_system(setup_music)
+        .add_startup_system(setup_music)
         .run();
 }
 
-// fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-//     let music = asset_server.load("Bombcakes.mp3");
-//     audio.play(music).looped();
-// }
+fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+    let music = asset_server.load("Bombcakes.mp3");
+    audio.play(music).loop_from(10.5);
+}
