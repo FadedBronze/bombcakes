@@ -14,7 +14,6 @@ const BACKGROUND_COLOR: Color = Color::AZURE;
 fn main() {
     App::new()
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
-        // .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugins(DefaultPlugins)
         .add_plugin(WorldInspectorPlugin::new())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
@@ -24,6 +23,7 @@ fn main() {
         .add_plugin(camera::GameCameraPlugin)
         .add_plugin(rocket_launcher::RocketLauncherPlugin)
         .add_plugin(AudioPlugin)
+        .add_plugin(RapierDebugRenderPlugin::default())
         // .add_startup_system(setup_music)
         .run();
 }

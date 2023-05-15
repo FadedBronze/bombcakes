@@ -1,10 +1,13 @@
 use std::f32::consts::PI;
 
 use bevy::{prelude::*, sprite::Anchor, window::PrimaryWindow};
+use bevy_rapier2d::prelude::*;
 
 use crate::camera::GameCamera;
 #[derive(Component)]
-struct RocketLauncher;
+struct RocketLauncher {
+    power: f32,
+}
 
 #[derive(Component)]
 struct RocketLauncherHolder;
@@ -17,7 +20,7 @@ fn spawn_rocket_launcher(
     for launcher_holder in ev_rocket_holder_spawns.iter() {
         let child = commands
             .spawn((
-                RocketLauncher,
+                RocketLauncher { power: 400.0 },
                 SpriteBundle {
                     texture: asset_server.load("rocket_launcher.png"),
                     sprite: Sprite {
@@ -90,7 +93,10 @@ struct Rocket;
 
 fn rocket_launcher_shoots(
     buttons: Res<Input<MouseButton>>,
-    rocket_launcher_query: Query<&Transform, (With<RocketLauncher>, Without<RocketLauncherHolder>)>,
+    rocket_launcher_query: Query<
+        (&Transform, &RocketLauncher),
+        (With<RocketLauncher>, Without<RocketLauncherHolder>),
+    >,
     rocket_launcher_holder_query: Query<
         &Transform,
         (With<RocketLauncherHolder>, Without<RocketLauncher>),
@@ -98,15 +104,15 @@ fn rocket_launcher_shoots(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let Ok(rocket_launcher) = rocket_launcher_query.get_single() else {
+    let Ok((rocket_launcher_transform, rocket_launcher)) = rocket_launcher_query.get_single() else {
         return;
     };
 
-    let Ok(rocket_launcher_holder) = rocket_launcher_holder_query.get_single() else {
+    let Ok(rocket_launcher_holder_transform) = rocket_launcher_holder_query.get_single() else {
         return;
     };
 
-    let direction_angle = Quat::to_euler(rocket_launcher.rotation, EulerRot::XYZ).2;
+    let direction_angle = Quat::to_euler(rocket_launcher_transform.rotation, EulerRot::XYZ).2;
 
     let direction = Vec2::new(f32::sin(direction_angle), -f32::cos(direction_angle));
 
@@ -117,13 +123,27 @@ fn rocket_launcher_shoots(
                 texture: asset_server.load("rocket.png"),
                 transform: Transform {
                     translation: Vec3::new(
-                        rocket_launcher_holder.translation.x + direction.x * 50.0,
-                        rocket_launcher_holder.translation.y + direction.y * 50.0,
+                        rocket_launcher_holder_transform.translation.x + direction.x * 50.0,
+                        rocket_launcher_holder_transform.translation.y + direction.y * 50.0,
                         1.0,
                     ),
                     scale: Vec3::new(0.2, 0.2, 0.1),
                     ..default()
                 },
+                ..default()
+            },
+            RigidBody::Dynamic,
+            Collider::ball(50.0),
+            Restitution {
+                coefficient: 1.0,
+                ..default()
+            },
+            GravityScale(3.0),
+            Velocity {
+                linvel: Vec2::new(
+                    direction.x * rocket_launcher.power,
+                    direction.y * rocket_launcher.power,
+                ),
                 ..default()
             },
         ));
