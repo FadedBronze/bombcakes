@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 use crate::player::PlayerLandedOnEvent;
 
 #[derive(Component, Reflect)]
-struct Platform;
+pub struct Platform;
 
 fn create_starting_platform(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(create_platform(

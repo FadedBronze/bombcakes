@@ -123,8 +123,8 @@ fn rocket_launcher_shoots(
                 texture: asset_server.load("rocket.png"),
                 transform: Transform {
                     translation: Vec3::new(
-                        rocket_launcher_holder_transform.translation.x + direction.x * 50.0,
-                        rocket_launcher_holder_transform.translation.y + direction.y * 50.0,
+                        rocket_launcher_holder_transform.translation.x + direction.x * 100.0,
+                        rocket_launcher_holder_transform.translation.y + direction.y * 100.0,
                         1.0,
                     ),
                     scale: Vec3::new(0.2, 0.2, 0.1),

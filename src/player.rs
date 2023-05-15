@@ -1,4 +1,4 @@
-use crate::{camera::*, rocket_launcher::RocketLauncherHolderSpawns};
+use crate::{camera::*, platform::Platform, rocket_launcher::RocketLauncherHolderSpawns};
 use bevy::{prelude::*, sprite::Anchor};
 use bevy_rapier2d::prelude::*;
 
@@ -203,20 +203,25 @@ fn ground_player(
     sensor_query: Query<Entity, With<PlayerGroundSensor>>,
     mut player_jump_query: Query<&mut PlayerJump, Without<PlayerGroundSensor>>,
     mut ev_landed: EventWriter<PlayerLandedOnEvent>,
+    platforms: Query<Entity, With<Platform>>,
 ) {
     let sensor = sensor_query.single();
     let mut player_jump = player_jump_query.single_mut();
 
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(h1, h2, _event_flag) = collision_event {
-            if h1 == &sensor {
-                player_jump.grounded = true;
-                ev_landed.send(PlayerLandedOnEvent(*h2));
-            }
+            if h1 == &sensor || h2 == &sensor {
+                for platform in platforms.iter() {
+                    if platform == *h2 {
+                        ev_landed.send(PlayerLandedOnEvent(*h2));
+                    }
 
-            if h2 == &sensor {
+                    if platform == *h1 {
+                        ev_landed.send(PlayerLandedOnEvent(*h1));
+                    }
+                }
+
                 player_jump.grounded = true;
-                ev_landed.send(PlayerLandedOnEvent(*h1));
             }
         }
 
