@@ -51,7 +51,7 @@ fn update_background_image_size(
 
     for e in reader.iter(&resize_event) {
         transform.scale = Vec3::new(e.width / 1920.0 * 1.5, e.height / 1080.0 * 1.5, 0.0);
-    }
+    }       
 }
 
 pub struct BackgroundPlugin;

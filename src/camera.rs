@@ -15,7 +15,9 @@ fn camera_follow(
     >,
 ) {
     let mut camera = camera_query.single_mut();
-    let followed = followed_by_camera_query.single_mut();
+    let Ok(followed) = followed_by_camera_query.get_single_mut() else {
+        return;
+    };
 
     let delta = followed.translation - camera.translation;
     camera.translation = Vec3::new(

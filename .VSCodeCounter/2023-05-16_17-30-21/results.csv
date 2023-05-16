@@ -1,0 +1,9 @@
+"filename", "language", "Rust", "comment", "blank", "total"
+"c:\Code\rust\bombcakes\src\arms.rs", "Rust", 62, 4, 14, 80
+"c:\Code\rust\bombcakes\src\background.rs", "Rust", 54, 0, 12, 66
+"c:\Code\rust\bombcakes\src\camera.rs", "Rust", 31, 0, 8, 39
+"c:\Code\rust\bombcakes\src\main.rs", "Rust", 32, 0, 5, 37
+"c:\Code\rust\bombcakes\src\platform.rs", "Rust", 99, 0, 17, 116
+"c:\Code\rust\bombcakes\src\player.rs", "Rust", 225, 0, 33, 258
+"c:\Code\rust\bombcakes\src\rocket_launcher.rs", "Rust", 142, 0, 23, 165
+"Total", "-", 645, 4, 112, 761

@@ -1,4 +1,6 @@
-use crate::{camera::*, platform::Platform, rocket_launcher::RocketLauncherHolderSpawns};
+use crate::{
+    arms::ArmsTarget, camera::*, platform::Platform, rocket_launcher::RocketLauncherHolderSpawns,
+};
 use bevy::{prelude::*, sprite::Anchor};
 use bevy_rapier2d::prelude::*;
 
@@ -28,8 +30,13 @@ fn follow_eyes(
     player_query: Query<&Transform, (With<PlayerMove>, Without<PlayerEyes>)>,
     mut player_eyes_query: Query<&mut Transform, (With<PlayerEyes>, Without<PlayerMove>)>,
 ) {
-    let mut eyes_transform = player_eyes_query.single_mut();
-    let player_transform = player_query.single();
+    let Ok(mut eyes_transform) = player_eyes_query.get_single_mut() else {
+        return;
+    };
+
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
 
     let delta = Vec3::new(
         player_transform.translation.x,
@@ -47,8 +54,12 @@ fn jump_player(
     mut time_since_jump: Local<f32>,
     time: Res<Time>,
 ) {
-    let (mut velocity, mut player_jump) = player_query.single_mut();
-    let mut legs_transform = player_legs_query.single_mut();
+    let Ok((mut velocity, mut player_jump)) = player_query.get_single_mut() else {
+        return;
+    };
+    let Ok(mut legs_transform) = player_legs_query.get_single_mut() else {
+        return;
+    };
 
     if keys.just_pressed(KeyCode::W) && player_jump.grounded {
         velocity.linvel.y = player_jump.jump_force;
@@ -75,7 +86,9 @@ fn move_player(
 ) {
     let delta_time = time.delta_seconds();
 
-    let (mut velocity, player) = player_query.single_mut();
+    let Ok((mut velocity, player)) = player_query.get_single_mut() else {
+        return;
+    };
 
     if keys.pressed(KeyCode::A) {
         velocity.linvel = Vec2::new(
@@ -142,6 +155,7 @@ fn spawn_player(
             ActiveEvents::COLLISION_EVENTS,
             Name::new("Player"),
             FollowedByCamera,
+            ArmsTarget,
         ))
         .id();
 
@@ -205,8 +219,12 @@ fn ground_player(
     mut ev_landed: EventWriter<PlayerLandedOnEvent>,
     platforms: Query<Entity, With<Platform>>,
 ) {
-    let sensor = sensor_query.single();
-    let mut player_jump = player_jump_query.single_mut();
+    let Ok(sensor) = sensor_query.get_single() else {
+        return;
+    };
+    let Ok(mut player_jump) = player_jump_query.get_single_mut() else {
+        return;
+    };
 
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(h1, h2, _event_flag) = collision_event {
@@ -233,15 +251,41 @@ fn ground_player(
     }
 }
 
+fn test_player_death(mut ev_player_death: EventWriter<PlayerDeath>, keys: Res<Input<KeyCode>>) {
+    if keys.just_released(KeyCode::R) {
+        ev_player_death.send(PlayerDeath);
+    }
+}
+
+fn player_death(
+    mut ev_player_death: EventReader<PlayerDeath>,
+    mut commands: Commands,
+    player: Query<Entity, (With<PlayerMove>, Without<PlayerEyes>, Without<PlayerLegs>)>,
+    player_eyes_query: Query<Entity, (With<PlayerEyes>, Without<PlayerMove>, Without<PlayerLegs>)>,
+    player_legs_query: Query<Entity, (With<PlayerLegs>, Without<PlayerMove>, Without<PlayerEyes>)>,
+) {
+    if ev_player_death.iter().len() > 0 {
+        commands.entity(player.single()).despawn_recursive();
+        commands.entity(player_eyes_query.single()).despawn();
+        commands.entity(player_legs_query.single()).despawn();
+    }
+}
+
+pub struct PlayerDeath;
+
 pub struct PlayerPlugin;
+
 pub struct PlayerLandedOnEvent(pub Entity);
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems((follow_eyes, move_player, jump_player, ground_player))
             .add_startup_system(spawn_player)
+            .add_system(player_death)
+            .add_system(test_player_death)
             .register_type::<PlayerMove>()
             .register_type::<PlayerJump>()
-            .add_event::<PlayerLandedOnEvent>();
+            .add_event::<PlayerLandedOnEvent>()
+            .add_event::<PlayerDeath>();
     }
 }
