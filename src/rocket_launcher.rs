@@ -20,7 +20,7 @@ fn spawn_rocket_launcher(
     for launcher_holder in ev_rocket_holder_spawns.iter() {
         let child = commands
             .spawn((
-                RocketLauncher { power: 400.0 },
+                RocketLauncher { power: 800.0 },
                 SpriteBundle {
                     texture: asset_server.load("rocket_launcher.png"),
                     sprite: Sprite {
@@ -146,19 +146,47 @@ fn rocket_launcher_shoots(
                 ),
                 ..default()
             },
-            Name::new("Rocket")
+            Name::new("Rocket"),
+            ActiveEvents::COLLISION_EVENTS,
         ));
+    }
+}
+
+fn handle_rocket_hit(
+    mut ev_collision: EventReader<CollisionEvent>,
+    rocket_targets: Query<(Entity, Option<&Parent>), (With<RocketTarget>, Without<Rocket>)>,
+    rockets: Query<Entity, (With<Rocket>, Without<RocketTarget>)>,
+    mut commands: Commands,
+) {
+    for collision_event in ev_collision.iter() {
+        if let CollisionEvent::Started(h1, h2, _event_flag) = collision_event {
+            for (target, parent_option) in rocket_targets.iter() {
+                for rocket in rockets.iter() {
+                    if h1 == &target && h2 == &rocket || h2 == &target && h1 == &rocket {
+                        if let Some(parent) = parent_option {
+                            commands.entity(**parent).despawn_recursive();
+                        } else {
+                            commands.entity(target).despawn_recursive();
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
 pub struct RocketLauncherHolderSpawns(pub Entity);
 pub struct RocketLauncherPlugin;
 
+#[derive(Component)]
+pub struct RocketTarget;
+
 impl Plugin for RocketLauncherPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_rocket_launcher)
             .add_system(rocket_launcher_follows_mouse)
             .add_system(rocket_launcher_shoots)
+            .add_system(handle_rocket_hit)
             .add_event::<RocketLauncherHolderSpawns>();
     }
 }

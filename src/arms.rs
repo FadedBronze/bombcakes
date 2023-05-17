@@ -4,8 +4,13 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Collider, CollisionEvent, GravityScale, RigidBody, Sensor, Velocity};
 use rand::*;
 
+use crate::{camera::FollowedByCamera, rocket_launcher::RocketTarget};
+
 #[derive(Component)]
 struct Arms;
+
+#[derive(Component)]
+struct GrabHitbox;
 
 #[derive(Resource)]
 struct SpawnArmTimer(Timer);
@@ -57,13 +62,27 @@ fn spawn_arms(
                 parent.spawn((
                     SpatialBundle {
                         transform: Transform {
-                            translation: Vec3::new(0.0, 225.0, 0.1),
+                            translation: Vec3::new(-10.0, 225.0, 0.1),
                             ..default()
                         },
                         ..default()
                     },
                     Sensor,
                     Collider::cuboid(150.0, 150.0),
+                    GrabHitbox,
+                ));
+
+                parent.spawn((
+                    SpatialBundle {
+                        transform: Transform {
+                            translation: Vec3::new(-10.0, 225.0, 0.1),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    Sensor,
+                    Collider::cuboid(200.0, 300.0),
+                    RocketTarget,
                 ));
             });
     }
@@ -71,15 +90,15 @@ fn spawn_arms(
     spawn_arm_timer.0.tick(time.delta());
 }
 
-//check for collision
-//update sprite to grabby one
-//set velocity to 0
-//trigger a delete player
 fn grab_target(
     mut collision_events: EventReader<CollisionEvent>,
     target_query: Query<Entity, (With<ArmsTarget>, Without<Arms>)>,
     mut commands: Commands,
-    mut hands_query: Query<(&Children, &mut Velocity), (With<Arms>, Without<ArmsTarget>)>,
+    mut hands_query: Query<
+        (Entity, &Children, &mut TextureAtlasSprite),
+        (With<Arms>, Without<ArmsTarget>),
+    >,
+    grab_hit_box_query: Query<Entity, With<GrabHitbox>>,
 ) {
     let Ok(target) = target_query.get_single() else {
       return;
@@ -87,21 +106,50 @@ fn grab_target(
 
     for collision in collision_events.iter() {
         if let CollisionEvent::Started(h1, h2, _event_flag) = collision {
-            for (hand_children, mut hand_velocity) in hands_query.iter_mut() {
-                let hand = hand_children.iter().next().unwrap();
+            for (hand, hand_children, mut sprite) in hands_query.iter_mut() {
+                let mut grab_hitbox = Err("no hitbox");
 
-                if h1 == &target && h2 == hand {
-                    commands.entity(target).despawn_recursive();
-
-                    hand_velocity.linvel = Vec2::ZERO;
+                for child in hand_children.iter() {
+                    if let Ok(child_grab_hitbox) = grab_hit_box_query.get(*child) {
+                        grab_hitbox = Ok(child_grab_hitbox);
+                    }
                 }
 
-                if h2 == &target && h1 == hand {
+                if h1 == &target && h2 == &grab_hitbox.unwrap() {
                     commands.entity(target).despawn_recursive();
 
-                    hand_velocity.linvel = Vec2::ZERO;
+                    commands.entity(hand).insert(FollowedByCamera);
+                    sprite.index = 2;
+                }
+
+                if h2 == &target && h1 == &grab_hitbox.unwrap() {
+                    commands.entity(target).despawn_recursive();
+
+                    commands.entity(hand).insert(FollowedByCamera);
+                    sprite.index = 2;
                 }
             }
+        }
+    }
+}
+
+fn chase_target(
+    target_query: Query<&Transform, (With<ArmsTarget>, Without<Arms>)>,
+    mut hands_query: Query<
+        (&Transform, &mut Velocity, &mut TextureAtlasSprite),
+        (With<Arms>, Without<ArmsTarget>),
+    >,
+) {
+    let Ok(target) = target_query.get_single() else {
+        return;
+    };
+
+    for (hand_transform, mut hand_velocity, mut hand_sprite) in hands_query.iter_mut() {
+        if (hand_transform.translation.y - target.translation.y).abs() < 550.0
+            && (hand_transform.translation.x - target.translation.x).abs() < 150.0
+        {
+            hand_velocity.linvel = Vec2::new(0.0, 600.0);
+            hand_sprite.index = 1;
         }
     }
 }
@@ -118,6 +166,7 @@ impl Plugin for ArmsPlugin {
             TimerMode::Repeating,
         )))
         .add_system(spawn_arms)
+        .add_system(chase_target)
         .add_system(grab_target);
     }
 }

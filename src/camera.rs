@@ -7,6 +7,8 @@ fn create_camera(mut commands: Commands) {
     commands.spawn((Camera2dBundle::default(), GameCamera, Name::new("Camera")));
 }
 
+//breaks if following children
+//there should be only one entity with FollowedByCamera at once
 fn camera_follow(
     mut camera_query: Query<&mut Transform, (With<GameCamera>, Without<FollowedByCamera>)>,
     mut followed_by_camera_query: Query<
@@ -20,6 +22,7 @@ fn camera_follow(
     };
 
     let delta = followed.translation - camera.translation;
+
     camera.translation = Vec3::new(
         camera.translation.x + delta.x * 0.1,
         camera.translation.y + delta.y * 0.1,
