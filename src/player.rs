@@ -251,27 +251,23 @@ fn ground_player(
     }
 }
 
-fn test_player_death(mut ev_player_death: EventWriter<PlayerDeath>, keys: Res<Input<KeyCode>>) {
-    if keys.just_released(KeyCode::R) {
-        ev_player_death.send(PlayerDeath);
-    }
-}
-
 fn player_death(
-    mut ev_player_death: EventReader<PlayerDeath>,
     mut commands: Commands,
-    player: Query<Entity, (With<PlayerMove>, Without<PlayerEyes>, Without<PlayerLegs>)>,
+    player_query: Query<(), (With<PlayerMove>, Without<PlayerEyes>, Without<PlayerLegs>)>,
     player_eyes_query: Query<Entity, (With<PlayerEyes>, Without<PlayerMove>, Without<PlayerLegs>)>,
     player_legs_query: Query<Entity, (With<PlayerLegs>, Without<PlayerMove>, Without<PlayerEyes>)>,
 ) {
-    if ev_player_death.iter().len() > 0 {
-        commands.entity(player.single()).despawn_recursive();
-        commands.entity(player_eyes_query.single()).despawn();
-        commands.entity(player_legs_query.single()).despawn();
-    }
-}
+    let Ok(_) = player_query.get_single() else {
+        if let Ok(player_eyes) = player_eyes_query.get_single() {
+            commands.entity(player_eyes).despawn();
+        }
+        if let Ok(player_legs) = player_legs_query.get_single() {
+            commands.entity(player_legs).despawn();
+        }
 
-pub struct PlayerDeath;
+        return;
+    };
+}
 
 pub struct PlayerPlugin;
 
@@ -282,10 +278,8 @@ impl Plugin for PlayerPlugin {
         app.add_systems((follow_eyes, move_player, jump_player, ground_player))
             .add_startup_system(spawn_player)
             .add_system(player_death)
-            .add_system(test_player_death)
             .register_type::<PlayerMove>()
             .register_type::<PlayerJump>()
-            .add_event::<PlayerLandedOnEvent>()
-            .add_event::<PlayerDeath>();
+            .add_event::<PlayerLandedOnEvent>();
     }
 }
