@@ -1,7 +1,9 @@
-use crate::player::PlayerLandedOnEvent;
+use crate::{game::player::PlayerLandedOnEvent, AppState};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use rand::*;
+
+use super::{GameEntity, PausedState};
 
 #[derive(Component, Reflect)]
 pub struct Platform;
@@ -21,7 +23,7 @@ fn create_platforms(
     let platform_count = platforms.iter().len();
     let mut rand_gen = rand::thread_rng();
 
-    if platform_count <= 3 {
+    if platform_count <= 7 {
         let mut highest_platform_y = f32::NEG_INFINITY;
         let mut highest_platform: Option<Transform> = None;
 
@@ -60,7 +62,14 @@ fn create_platforms(
 fn create_platform(
     asset_server: &AssetServer,
     transform: Transform,
-) -> (SpriteBundle, Platform, RigidBody, Collider, Name) {
+) -> (
+    SpriteBundle,
+    Platform,
+    RigidBody,
+    Collider,
+    Name,
+    GameEntity,
+) {
     (
         SpriteBundle {
             texture: asset_server.load("platform.png"),
@@ -71,6 +80,7 @@ fn create_platform(
         RigidBody::Fixed,
         Collider::cuboid(154.0, 38.0),
         Name::new("Platform"),
+        GameEntity,
     )
 }
 
@@ -109,7 +119,11 @@ pub struct PlatformPlugin;
 impl Plugin for PlatformPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Platform>()
-            .add_startup_system(create_starting_platform)
-            .add_systems((create_platforms, delete_platform));
+            .add_system(create_starting_platform.in_schedule(OnEnter(AppState::InGame)))
+            .add_systems(
+                (create_platforms, delete_platform)
+                    .in_set(OnUpdate(AppState::InGame))
+                    .in_set(OnUpdate(PausedState::Playing)),
+            );
     }
 }

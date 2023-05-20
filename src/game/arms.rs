@@ -4,7 +4,9 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Collider, CollisionEvent, GravityScale, RigidBody, Sensor, Velocity};
 use rand::*;
 
-use crate::{camera::FollowedByCamera, rocket_launcher::RocketTarget};
+use crate::{camera::FollowedByCamera, game::rocket_launcher::RocketTarget, AppState};
+
+use super::{GameEntity, PausedState};
 
 #[derive(Component)]
 struct Arms;
@@ -57,6 +59,7 @@ fn spawn_arms(
                     linvel: Vec2::new(0.0, 300.0),
                     ..default()
                 },
+                GameEntity,
             ))
             .with_children(|parent| {
                 parent.spawn((
@@ -106,7 +109,7 @@ fn grab_target(
 
     for collision in collision_events.iter() {
         if let CollisionEvent::Started(h1, h2, _event_flag) = collision {
-            for (hand, hand_children, mut sprite) in hands_query.iter_mut() {
+            for (hand, hand_children, mut hand_sprite) in hands_query.iter_mut() {
                 let mut grab_hitbox = Err("no hitbox");
 
                 for child in hand_children.iter() {
@@ -119,14 +122,16 @@ fn grab_target(
                     commands.entity(target).despawn_recursive();
 
                     commands.entity(hand).insert(FollowedByCamera);
-                    sprite.index = 2;
+
+                    hand_sprite.index = 2;
                 }
 
                 if h2 == &target && h1 == &grab_hitbox.unwrap() {
                     commands.entity(target).despawn_recursive();
 
                     commands.entity(hand).insert(FollowedByCamera);
-                    sprite.index = 2;
+
+                    hand_sprite.index = 2;
                 }
             }
         }
@@ -165,8 +170,10 @@ impl Plugin for ArmsPlugin {
             Duration::from_secs(2),
             TimerMode::Repeating,
         )))
-        .add_system(spawn_arms)
-        .add_system(chase_target)
-        .add_system(grab_target);
+        .add_systems(
+            (chase_target, grab_target, spawn_arms)
+                .in_set(OnUpdate(AppState::InGame))
+                .in_set(OnUpdate(PausedState::Playing)),
+        );
     }
 }

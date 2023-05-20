@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::AppState;
+
 #[derive(Component)]
 pub struct GameCamera;
 
@@ -38,6 +40,6 @@ pub struct FollowedByCamera;
 impl Plugin for GameCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(create_camera)
-            .add_system(camera_follow);
+            .add_system(camera_follow.run_if(in_state(AppState::InGame)));
     }
 }

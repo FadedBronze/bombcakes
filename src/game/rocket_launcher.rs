@@ -3,7 +3,9 @@ use std::f32::consts::PI;
 use bevy::{prelude::*, sprite::Anchor, window::PrimaryWindow};
 use bevy_rapier2d::prelude::*;
 
-use crate::camera::GameCamera;
+use crate::{camera::GameCamera, AppState};
+
+use super::{GameEntity, PausedState};
 #[derive(Component)]
 struct RocketLauncher {
     power: f32,
@@ -148,6 +150,7 @@ fn rocket_launcher_shoots(
             },
             Name::new("Rocket"),
             ActiveEvents::COLLISION_EVENTS,
+            GameEntity,
         ));
     }
 }
@@ -183,10 +186,16 @@ pub struct RocketTarget;
 
 impl Plugin for RocketLauncherPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(spawn_rocket_launcher)
-            .add_system(rocket_launcher_follows_mouse)
-            .add_system(rocket_launcher_shoots)
-            .add_system(handle_rocket_hit)
-            .add_event::<RocketLauncherHolderSpawns>();
+        app.add_systems(
+            (
+                rocket_launcher_follows_mouse,
+                rocket_launcher_shoots,
+                handle_rocket_hit,
+            )
+                .in_set(OnUpdate(AppState::InGame))
+                .in_set(OnUpdate(PausedState::Playing)),
+        )
+        .add_system(spawn_rocket_launcher.run_if(in_state(AppState::InGame)))
+        .add_event::<RocketLauncherHolderSpawns>();
     }
 }

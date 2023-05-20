@@ -1,8 +1,16 @@
+mod player_jump;
+mod player_move;
+
 use crate::{
-    arms::ArmsTarget, camera::*, platform::Platform, rocket_launcher::RocketLauncherHolderSpawns,
+    camera::*, game::arms::ArmsTarget, game::rocket_launcher::RocketLauncherHolderSpawns, AppState,
 };
 use bevy::{prelude::*, sprite::Anchor};
 use bevy_rapier2d::prelude::*;
+
+use self::player_jump::{ground_player, jump_player};
+use self::player_move::move_player;
+
+use super::{GameEntity, PausedState};
 
 #[derive(Component, Reflect)]
 struct PlayerMove {
@@ -47,81 +55,6 @@ fn follow_eyes(
     eyes_transform.translation += delta / 2.0;
 }
 
-fn jump_player(
-    mut player_query: Query<(&mut Velocity, &mut PlayerJump), Without<PlayerLegs>>,
-    mut player_legs_query: Query<&mut Transform, (With<PlayerLegs>, Without<PlayerJump>)>,
-    keys: Res<Input<KeyCode>>,
-    mut time_since_jump: Local<f32>,
-    time: Res<Time>,
-) {
-    let Ok((mut velocity, mut player_jump)) = player_query.get_single_mut() else {
-        return;
-    };
-    let Ok(mut legs_transform) = player_legs_query.get_single_mut() else {
-        return;
-    };
-
-    if keys.just_pressed(KeyCode::W) && player_jump.grounded {
-        velocity.linvel.y = player_jump.jump_force;
-        player_jump.grounded = false;
-
-        *time_since_jump = 0.0;
-    } else {
-        *time_since_jump += time.delta_seconds();
-        legs_transform.scale.y = 2.0;
-    }
-
-    if *time_since_jump < 0.2 {
-        legs_transform.scale.y = 1.8;
-    }
-}
-
-fn move_player(
-    mut player_query: Query<(&mut Velocity, &PlayerMove)>,
-    keys: Res<Input<KeyCode>>,
-    mut stopped_player: Local<bool>,
-    mut x_velocity_when_stopped: Local<f32>,
-    mut counter: Local<f32>,
-    time: Res<Time>,
-) {
-    let delta_time = time.delta_seconds();
-
-    let Ok((mut velocity, player)) = player_query.get_single_mut() else {
-        return;
-    };
-
-    if keys.pressed(KeyCode::A) {
-        velocity.linvel = Vec2::new(
-            (velocity.linvel.x - player.speed).max(-player.max_speed),
-            velocity.linvel.y,
-        );
-        *stopped_player = false;
-    } else if keys.pressed(KeyCode::D) {
-        velocity.linvel = Vec2::new(
-            (velocity.linvel.x + player.speed).min(player.max_speed),
-            velocity.linvel.y,
-        );
-        *stopped_player = false;
-    } else {
-        if *stopped_player == true {
-            let mut stopped_amount = 1.0 - (*counter / player.seconds_to_stop_after_key_release);
-
-            if stopped_amount > 0.0 {
-                *counter += delta_time;
-            } else {
-                stopped_amount = 0.0
-            }
-
-            velocity.linvel =
-                Vec2::new(*x_velocity_when_stopped * stopped_amount, velocity.linvel.y);
-        } else {
-            *counter = 0.0;
-            *stopped_player = true;
-            *x_velocity_when_stopped = velocity.linvel.x;
-        }
-    }
-}
-
 fn spawn_player(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
@@ -155,6 +88,7 @@ fn spawn_player(
             ActiveEvents::COLLISION_EVENTS,
             Name::new("Player"),
             FollowedByCamera,
+            GameEntity,
             ArmsTarget,
         ))
         .id();
@@ -171,6 +105,7 @@ fn spawn_player(
             ..default()
         },
         Name::new("Eyes"),
+        GameEntity,
     ));
 
     commands.entity(player).with_children(|parent| {
@@ -212,45 +147,6 @@ fn spawn_player(
     ev_rocket_launcher_holder_spawns.send(RocketLauncherHolderSpawns(player))
 }
 
-fn ground_player(
-    mut collision_events: EventReader<CollisionEvent>,
-    sensor_query: Query<Entity, With<PlayerGroundSensor>>,
-    mut player_jump_query: Query<&mut PlayerJump, Without<PlayerGroundSensor>>,
-    mut ev_landed: EventWriter<PlayerLandedOnEvent>,
-    platforms: Query<Entity, With<Platform>>,
-) {
-    let Ok(sensor) = sensor_query.get_single() else {
-        return;
-    };
-    let Ok(mut player_jump) = player_jump_query.get_single_mut() else {
-        return;
-    };
-
-    for collision_event in collision_events.iter() {
-        if let CollisionEvent::Started(h1, h2, _event_flag) = collision_event {
-            if h1 == &sensor || h2 == &sensor {
-                for platform in platforms.iter() {
-                    if platform == *h2 {
-                        ev_landed.send(PlayerLandedOnEvent(*h2));
-                    }
-
-                    if platform == *h1 {
-                        ev_landed.send(PlayerLandedOnEvent(*h1));
-                    }
-                }
-
-                player_jump.grounded = true;
-            }
-        }
-
-        if let CollisionEvent::Stopped(h1, h2, _event_flag) = collision_event {
-            if h1 == &sensor || h2 == &sensor {
-                player_jump.grounded = false;
-            }
-        }
-    }
-}
-
 fn player_death(
     mut commands: Commands,
     player_query: Query<(), (With<PlayerMove>, Without<PlayerEyes>, Without<PlayerLegs>)>,
@@ -275,11 +171,20 @@ pub struct PlayerLandedOnEvent(pub Entity);
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems((follow_eyes, move_player, jump_player, ground_player))
-            .add_startup_system(spawn_player)
-            .add_system(player_death)
-            .register_type::<PlayerMove>()
-            .register_type::<PlayerJump>()
-            .add_event::<PlayerLandedOnEvent>();
+        app.add_systems(
+            (
+                follow_eyes,
+                move_player,
+                jump_player,
+                ground_player,
+                player_death,
+            )
+                .in_set(OnUpdate(AppState::InGame))
+                .in_set(OnUpdate(PausedState::Playing)),
+        )
+        .add_system(spawn_player.in_schedule(OnEnter(AppState::InGame)))
+        .register_type::<PlayerMove>()
+        .register_type::<PlayerJump>()
+        .add_event::<PlayerLandedOnEvent>();
     }
 }

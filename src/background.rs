@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::*};
 
-use crate::camera::GameCamera;
+use crate::{camera::GameCamera, AppState};
 
 #[derive(Component)]
 struct Background {
@@ -29,7 +29,9 @@ fn animate_background(
     mut background_query: Query<(&mut Background, &mut Transform)>,
     camera_query: Query<&Transform, (With<GameCamera>, Without<Background>)>,
 ) {
-    let (mut background, mut transform) = background_query.single_mut();
+    let Ok((mut background, mut transform)) = background_query.get_single_mut() else {
+        return;
+    };
     let camera = camera_query.single();
 
     background.iteration += 1;
@@ -45,21 +47,25 @@ fn update_background_image_size(
     resize_event: Res<Events<WindowResized>>,
     mut background_query: Query<&mut Transform, With<Background>>,
 ) {
-    let mut transform = background_query.single_mut();
+    let Ok(mut transform) = background_query.get_single_mut() else {
+        return;
+    };
 
     let mut reader = resize_event.get_reader();
 
     for e in reader.iter(&resize_event) {
         transform.scale = Vec3::new(e.width / 1920.0 * 1.5, e.height / 1080.0 * 1.5, 0.0);
-    }       
+    }
 }
 
 pub struct BackgroundPlugin;
 
 impl Plugin for BackgroundPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(animate_background)
-            .add_system(update_background_image_size)
-            .add_startup_system(create_background);
+        app.add_startup_system(create_background.run_if(in_state(AppState::InGame)))
+            .add_systems(
+                (update_background_image_size, animate_background)
+                    .in_set(OnUpdate(AppState::InGame)),
+            );
     }
 }
