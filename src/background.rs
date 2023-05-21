@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::*};
 
-use crate::{camera::GameCamera, AppState};
+use crate::camera::GameCamera;
 
 #[derive(Component)]
 struct Background {
@@ -62,10 +62,7 @@ pub struct BackgroundPlugin;
 
 impl Plugin for BackgroundPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(create_background.run_if(in_state(AppState::InGame)))
-            .add_systems(
-                (update_background_image_size, animate_background)
-                    .in_set(OnUpdate(AppState::InGame)),
-            );
+        app.add_startup_system(create_background)
+            .add_systems((update_background_image_size, animate_background));
     }
 }
