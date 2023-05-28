@@ -44,7 +44,7 @@ fn toggle_pause(
     keys: Res<Input<KeyCode>>,
     mut simulation_state: ResMut<RapierConfiguration>,
 ) {
-    if keys.just_pressed(KeyCode::P) {
+    if keys.just_pressed(KeyCode::Escape) {
         if paused.0 == PausedState::Paused {
             commands.insert_resource(NextState(Some(PausedState::Playing)));
             simulation_state.physics_pipeline_active = true;

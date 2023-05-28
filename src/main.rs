@@ -7,12 +7,21 @@ mod background;
 mod camera;
 mod game;
 mod main_menu;
+mod settings_menu;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum AppState {
     #[default]
-    Menu,
+    MainMenu,
     InGame,
+    Settings,
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum SettingsState {
+    InGame,
+    #[default]
+    InMenu,
 }
 
 fn main() {
@@ -29,11 +38,13 @@ fn main() {
         .add_startup_system(setup_music)
         //App state
         .add_state::<AppState>()
+        .add_state::<SettingsState>()
         //Game stuff
         .add_plugin(game::GamePlugin)
         .add_plugin(camera::GameCameraPlugin)
         .add_plugin(main_menu::MenuPlugin)
         .add_plugin(background::BackgroundPlugin)
+        .add_plugin(settings_menu::SettingsPlugin)
         //run
         .run();
 }

@@ -1,6 +1,6 @@
 use bevy::{app::AppExit, prelude::*};
 
-use crate::AppState;
+use crate::{AppState, SettingsState};
 
 pub struct MenuPlugin;
 
@@ -12,6 +12,9 @@ struct ExitButton;
 
 #[derive(Component)]
 struct PlayButton;
+
+#[derive(Component)]
+struct SettingsButton;
 
 fn create_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
@@ -35,7 +38,7 @@ fn create_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Percent(100.0), Val::Px(80.0)),
-                        justify_content: JustifyContent::SpaceBetween,
+                        justify_content: JustifyContent::End,
                         align_items: AlignItems::Center,
                         position_type: PositionType::Absolute,
                         position: UiRect {
@@ -55,25 +58,18 @@ fn create_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(ButtonBundle {
-                        image: asset_server.load("setting_icon.png").into(),
-                        style: Style {
-                            size: Size::new(Val::Auto, Val::Percent(100.0)),
-                            aspect_ratio: Some(1.0 / 1.0),
+                    parent.spawn((
+                        ButtonBundle {
+                            image: asset_server.load("setting_icon.png").into(),
+                            style: Style {
+                                size: Size::new(Val::Auto, Val::Percent(100.0)),
+                                aspect_ratio: Some(1.0 / 1.0),
+                                ..default()
+                            },
                             ..default()
                         },
-                        ..default()
-                    });
-
-                    parent.spawn(ButtonBundle {
-                        image: asset_server.load("music_icon.png").into(),
-                        style: Style {
-                            size: Size::new(Val::Auto, Val::Percent(100.0)),
-                            aspect_ratio: Some(1.0 / 1.0),
-                            ..default()
-                        },
-                        ..default()
-                    });
+                        SettingsButton,
+                    ));
                 });
 
             parent.spawn(ImageBundle {
@@ -170,10 +166,10 @@ fn switch_into_menu(
     mut commands: Commands,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
-        if app_state.0 == AppState::Menu {
+        if app_state.0 == AppState::MainMenu {
             commands.insert_resource(NextState(Some(AppState::InGame)));
         } else {
-            commands.insert_resource(NextState(Some(AppState::Menu)));
+            commands.insert_resource(NextState(Some(AppState::MainMenu)));
         }
     }
 }
@@ -210,8 +206,8 @@ fn interact_exit_button(
     mut ev_exit: EventWriter<AppExit>,
 ) {
     let Ok((interaction, mut background_color)) = button_query.get_single_mut() else {
-  return;
-};
+        return;
+    };
 
     match *interaction {
         Interaction::Clicked => {
@@ -226,13 +222,43 @@ fn interact_exit_button(
     }
 }
 
+fn interact_settings_button(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<SettingsButton>),
+    >,
+    mut commands: Commands,
+) {
+    let Ok((interaction, mut background_color)) = button_query.get_single_mut() else {
+        return;
+    };
+
+    match *interaction {
+        Interaction::Clicked => {
+            commands.insert_resource(NextState(Some(AppState::Settings)));
+            commands.insert_resource(NextState(Some(SettingsState::InMenu)));
+        }
+        Interaction::Hovered => {
+            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 1.0));
+        }
+        Interaction::None => {
+            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 0.8));
+        }
+    }
+}
+
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(switch_into_menu)
-            .add_system(create_main_menu.in_schedule(OnEnter(AppState::Menu)))
-            .add_system(despawn_main_menu.in_schedule(OnExit(AppState::Menu)))
+            .add_system(create_main_menu.in_schedule(OnEnter(AppState::MainMenu)))
+            .add_system(despawn_main_menu.in_schedule(OnExit(AppState::MainMenu)))
             .add_systems(
-                (interact_exit_button, interact_play_button).in_set(OnUpdate(AppState::Menu)),
+                (
+                    interact_exit_button,
+                    interact_play_button,
+                    interact_settings_button,
+                )
+                    .in_set(OnUpdate(AppState::MainMenu)),
             );
     }
 }
