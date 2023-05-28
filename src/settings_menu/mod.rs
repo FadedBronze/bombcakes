@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::{AppState, SettingsState};
 
 mod input_types;
 
@@ -8,6 +8,9 @@ use self::input_types::{slider::create_slider, InputPlugin};
 
 #[derive(Component)]
 struct SettingsMenu;
+
+#[derive(Component)]
+struct BackButton;
 
 fn create_settings_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
@@ -21,6 +24,7 @@ fn create_settings_menu(mut commands: Commands, asset_server: Res<AssetServer>) 
                 }),
                 style: Style {
                     size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                    position_type: PositionType::Absolute,
                     display: Display::Flex,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
@@ -45,14 +49,17 @@ fn create_settings_menu(mut commands: Commands, asset_server: Res<AssetServer>) 
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(ImageBundle {
-                        style: Style {
-                            size: Size::new(Val::Px(30.0), Val::Px(56.2)),
+                    parent.spawn((
+                        ButtonBundle {
+                            style: Style {
+                                size: Size::new(Val::Px(30.0), Val::Px(56.2)),
+                                ..default()
+                            },
+                            image: asset_server.load("menus/back_arrow.png").into(),
                             ..default()
                         },
-                        image: asset_server.load("menus/back_arrow.png").into(),
-                        ..default()
-                    });
+                        BackButton,
+                    ));
 
                     parent
                         .spawn(NodeBundle {
@@ -114,10 +121,34 @@ fn create_settings_menu(mut commands: Commands, asset_server: Res<AssetServer>) 
                         .with_children(|parent| {
                             create_slider(&asset_server, parent, "Master volume", ());
                             create_slider(&asset_server, parent, "Music volume", ());
-                            create_slider(&asset_server, parent, "Sfx volume", ());
+                            create_slider(&asset_server, parent, "SFX volume", ());
                         });
                 });
         });
+}
+
+fn interact_back_button(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<BackButton>),
+    >,
+    mut commands: Commands,
+) {
+    let Ok((interaction, mut background_color)) = button_query.get_single_mut() else {
+        return;
+    };
+
+    match *interaction {
+        Interaction::Clicked => {
+            commands.insert_resource(NextState(Some(SettingsState::Closed)));
+        }
+        Interaction::Hovered => {
+            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 1.0));
+        }
+        Interaction::None => {
+            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 0.8));
+        }
+    }
 }
 
 fn despawn_settings_menu(
@@ -133,8 +164,9 @@ pub struct SettingsPlugin;
 
 impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_settings_menu.in_schedule(OnEnter(AppState::Settings)))
-            .add_system(despawn_settings_menu.in_schedule(OnExit(AppState::Settings)))
+        app.add_system(create_settings_menu.in_schedule(OnEnter(SettingsState::Open)))
+            .add_system(despawn_settings_menu.in_schedule(OnEnter(SettingsState::Closed)))
+            .add_system(interact_back_button)
             .add_plugin(InputPlugin);
         //     .add_systems(
         //         (

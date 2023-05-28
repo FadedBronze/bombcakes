@@ -14,14 +14,13 @@ pub enum AppState {
     #[default]
     MainMenu,
     InGame,
-    Settings,
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum SettingsState {
-    InGame,
+    Open,
     #[default]
-    InMenu,
+    Closed,
 }
 
 fn main() {
@@ -31,6 +30,7 @@ fn main() {
         //Rapier
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(RapierDebugRenderPlugin::default())
+        .add_system(setup_rapier)
         //World inspector
         .add_plugin(WorldInspectorPlugin::new())
         //Audio
@@ -52,4 +52,12 @@ fn main() {
 fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     let music = asset_server.load("Bombcakes.mp3");
     audio.play(music).loop_from(11.0);
+}
+
+fn setup_rapier(mut rapier_config: ResMut<RapierConfiguration>) {
+    rapier_config.timestep_mode = TimestepMode::Variable {
+        max_dt: 1.0 / 30.0,
+        time_scale: 1.0,
+        substeps: 1,
+    }
 }

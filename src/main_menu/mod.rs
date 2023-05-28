@@ -235,8 +235,7 @@ fn interact_settings_button(
 
     match *interaction {
         Interaction::Clicked => {
-            commands.insert_resource(NextState(Some(AppState::Settings)));
-            commands.insert_resource(NextState(Some(SettingsState::InMenu)));
+            commands.insert_resource(NextState(Some(SettingsState::Open)));
         }
         Interaction::Hovered => {
             *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 1.0));
@@ -247,11 +246,21 @@ fn interact_settings_button(
     }
 }
 
+fn hide_on_settings_open(mut main_menu: Query<&mut Visibility, With<MainMenu>>) {
+    *main_menu.single_mut() = Visibility::Hidden;
+}
+
+fn reveal_on_settings_close(mut main_menu: Query<&mut Visibility, With<MainMenu>>) {
+    *main_menu.single_mut() = Visibility::Visible;
+}
+
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(switch_into_menu)
             .add_system(create_main_menu.in_schedule(OnEnter(AppState::MainMenu)))
             .add_system(despawn_main_menu.in_schedule(OnExit(AppState::MainMenu)))
+            .add_system(hide_on_settings_open.in_schedule(OnEnter(SettingsState::Open)))
+            .add_system(reveal_on_settings_close.in_schedule(OnExit(SettingsState::Open)))
             .add_systems(
                 (
                     interact_exit_button,
