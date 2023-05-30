@@ -72,7 +72,7 @@ fn spawn_player(
                 jump_force: 300.0,
             },
             SpriteBundle {
-                texture: asset_server.load("cupcake.png"),
+                texture: asset_server.load("player/cupcake.png"),
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, 1.0),
                     scale: Vec3::new(0.1, 0.1, 0.1),
@@ -96,7 +96,7 @@ fn spawn_player(
     commands.spawn((
         PlayerEyes,
         SpriteBundle {
-            texture: asset_server.load("angry_eyes.png"),
+            texture: asset_server.load("player/angry_eyes.png"),
             transform: Transform {
                 translation: Vec3::new(0.0, 0.0, 1.0),
                 scale: Vec3::new(0.1, 0.1, 0.1),
@@ -112,7 +112,7 @@ fn spawn_player(
         parent.spawn((
             PlayerLegs,
             SpriteBundle {
-                texture: asset_server.load("legs.png"),
+                texture: asset_server.load("player/legs.png"),
                 sprite: Sprite {
                     anchor: Anchor::TopCenter,
                     ..default()

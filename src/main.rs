@@ -2,12 +2,15 @@ use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_kira_audio::prelude::*;
 use bevy_rapier2d::prelude::*;
+use game_audio::GameAudioPlugin;
 
 mod background;
 mod camera;
 mod game;
+mod game_audio;
 mod main_menu;
 mod settings_menu;
+mod utils;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum AppState {
@@ -35,7 +38,7 @@ fn main() {
         .add_plugin(WorldInspectorPlugin::new())
         //Audio
         .add_plugin(AudioPlugin)
-        .add_startup_system(setup_music)
+        .add_plugin(GameAudioPlugin)
         //App state
         .add_state::<AppState>()
         .add_state::<SettingsState>()
@@ -47,11 +50,6 @@ fn main() {
         .add_plugin(settings_menu::SettingsPlugin)
         //run
         .run();
-}
-
-fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("Bombcakes.mp3");
-    audio.play(music).loop_from(11.0);
 }
 
 fn setup_rapier(mut rapier_config: ResMut<RapierConfiguration>) {

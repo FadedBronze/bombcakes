@@ -28,7 +28,7 @@ fn spawn_arms(
     let mut random_gen = rand::thread_rng();
 
     if spawn_arm_timer.0.finished() {
-        let texture_handle = asset_server.load("arms.png");
+        let texture_handle = asset_server.load("enemies/arms.png");
         let texture_atlas =
             TextureAtlas::from_grid(texture_handle, Vec2::new(500.0, 3672.0), 3, 1, None, None);
         let texture_atlas_handle = texture_atlases.add(texture_atlas);

@@ -1,9 +1,10 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
 #[derive(Component, Reflect)]
-pub(super) struct SliderHandle {
+pub struct SliderHandle {
     pub position: f32,
     drag_start: Option<f32>,
+    pub just_created: bool,
 }
 
 #[derive(Component)]
@@ -11,6 +12,11 @@ pub(super) struct SliderCover;
 
 #[derive(Component)]
 pub(super) struct SliderBack;
+
+pub trait SliderDataController<Data: Resource> {
+    fn save_data(data: &mut Data, position: f32);
+    fn load_data(data: &Data) -> f32;
+}
 
 pub fn create_slider(
     asset_server: &AssetServer,
@@ -98,6 +104,7 @@ pub fn create_slider(
                         SliderHandle {
                             position: 0.0,
                             drag_start: None,
+                            just_created: true,
                         },
                         bundle,
                     ));

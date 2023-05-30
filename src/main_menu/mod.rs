@@ -1,6 +1,6 @@
 use bevy::{app::AppExit, prelude::*};
 
-use crate::{AppState, SettingsState};
+use crate::{utils::interact_button, AppState, SettingsState};
 
 pub struct MenuPlugin;
 
@@ -60,7 +60,7 @@ fn create_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn((
                         ButtonBundle {
-                            image: asset_server.load("setting_icon.png").into(),
+                            image: asset_server.load("menus/buttons/setting_icon.png").into(),
                             style: Style {
                                 size: Size::new(Val::Auto, Val::Percent(100.0)),
                                 aspect_ratio: Some(1.0 / 1.0),
@@ -80,7 +80,7 @@ fn create_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     margin: UiRect::new(Val::Px(0.0), Val::Px(0.0), Val::Px(0.0), Val::Px(80.0)),
                     ..default()
                 },
-                image: asset_server.load("Bombcakes.png").into(),
+                image: asset_server.load("menus/Bombcakes.png").into(),
                 ..default()
             });
 
@@ -95,7 +95,7 @@ fn create_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         image: UiImage {
-                            texture: asset_server.load("blue_button.png"),
+                            texture: asset_server.load("menus/buttons/blue_button.png"),
                             ..default()
                         },
                         background_color: BackgroundColor(Color::rgba(0.0, 0.0, 0.0, 0.0)),
@@ -130,7 +130,7 @@ fn create_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         image: UiImage {
-                            texture: asset_server.load("red_button.png"),
+                            texture: asset_server.load("menus/buttons/red_button.png"),
                             ..default()
                         },
                         background_color: BackgroundColor(Color::rgba(0.0, 0.0, 0.0, 0.0)),
@@ -160,44 +160,6 @@ fn despawn_main_menu(mut commands: Commands, main_menu: Query<Entity, With<MainM
     commands.entity(main_menu.single()).despawn_recursive();
 }
 
-fn switch_into_menu(
-    keys: Res<Input<KeyCode>>,
-    app_state: Res<State<AppState>>,
-    mut commands: Commands,
-) {
-    if keys.just_pressed(KeyCode::Escape) {
-        if app_state.0 == AppState::MainMenu {
-            commands.insert_resource(NextState(Some(AppState::InGame)));
-        } else {
-            commands.insert_resource(NextState(Some(AppState::MainMenu)));
-        }
-    }
-}
-
-fn interact_play_button(
-    mut button_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<PlayButton>),
-    >,
-    mut commands: Commands,
-) {
-    let Ok((interaction, mut background_color)) = button_query.get_single_mut() else {
-    return;
-  };
-
-    match *interaction {
-        Interaction::Clicked => {
-            commands.insert_resource(NextState(Some(AppState::InGame)));
-        }
-        Interaction::Hovered => {
-            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 1.0));
-        }
-        Interaction::None => {
-            *background_color = BackgroundColor(Color::rgba(0.95, 0.95, 0.95, 1.0));
-        }
-    }
-}
-
 fn interact_exit_button(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
@@ -222,26 +184,20 @@ fn interact_exit_button(
     }
 }
 
-fn interact_settings_button(
-    mut button_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<SettingsButton>),
-    >,
-    mut commands: Commands,
-) {
-    let Ok((interaction, mut background_color)) = button_query.get_single_mut() else {
-        return;
-    };
+impl interact_button::HoverButton for SettingsButton {
+    fn on_click(commands: &mut Commands) {
+        commands.insert_resource(NextState(Some(SettingsState::Open)));
+    }
+}
 
-    match *interaction {
-        Interaction::Clicked => {
-            commands.insert_resource(NextState(Some(SettingsState::Open)));
-        }
-        Interaction::Hovered => {
-            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 1.0));
-        }
-        Interaction::None => {
-            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 0.8));
+impl interact_button::HoverButton for PlayButton {
+    fn on_click(commands: &mut Commands) {
+        commands.insert_resource(NextState(Some(AppState::InGame)));
+    }
+    fn get_interaction_colors() -> interact_button::InteractionColors {
+        interact_button::InteractionColors {
+            hover_color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+            normal_color: Color::rgba(0.95, 0.95, 0.95, 1.0),
         }
     }
 }
@@ -256,16 +212,23 @@ fn reveal_on_settings_close(mut main_menu: Query<&mut Visibility, With<MainMenu>
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(switch_into_menu)
-            .add_system(create_main_menu.in_schedule(OnEnter(AppState::MainMenu)))
+        app.add_system(create_main_menu.in_schedule(OnEnter(AppState::MainMenu)))
             .add_system(despawn_main_menu.in_schedule(OnExit(AppState::MainMenu)))
-            .add_system(hide_on_settings_open.in_schedule(OnEnter(SettingsState::Open)))
-            .add_system(reveal_on_settings_close.in_schedule(OnExit(SettingsState::Open)))
+            .add_system(
+                hide_on_settings_open
+                    .in_schedule(OnEnter(SettingsState::Open))
+                    .run_if(in_state(AppState::MainMenu)),
+            )
+            .add_system(
+                reveal_on_settings_close
+                    .in_schedule(OnExit(SettingsState::Open))
+                    .run_if(in_state(AppState::MainMenu)),
+            )
             .add_systems(
                 (
                     interact_exit_button,
-                    interact_play_button,
-                    interact_settings_button,
+                    interact_button::interact_system::<PlayButton>,
+                    interact_button::interact_system::<SettingsButton>,
                 )
                     .in_set(OnUpdate(AppState::MainMenu)),
             );

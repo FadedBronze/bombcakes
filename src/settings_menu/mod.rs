@@ -1,16 +1,38 @@
 use bevy::prelude::*;
 
-use crate::{AppState, SettingsState};
+use crate::{
+    game_audio::GameAudioSettings,
+    utils::interact_button::{self, HoverButton},
+    SettingsState,
+};
 
 mod input_types;
 
-use self::input_types::{slider::create_slider, InputPlugin};
+use self::input_types::{
+    slider::{create_slider, SliderDataController, SliderHandle},
+    InputPlugin,
+};
 
 #[derive(Component)]
 struct SettingsMenu;
 
 #[derive(Component)]
 struct BackButton;
+
+impl HoverButton for BackButton {
+    fn on_click(commands: &mut Commands) {
+        commands.insert_resource(NextState(Some(SettingsState::Closed)));
+    }
+}
+
+#[derive(Component)]
+struct MasterVolumeSlider;
+
+#[derive(Component)]
+struct SFXVolumeSlider;
+
+#[derive(Component)]
+struct MusicVolumeSlider;
 
 fn create_settings_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
@@ -55,7 +77,7 @@ fn create_settings_menu(mut commands: Commands, asset_server: Res<AssetServer>) 
                                 size: Size::new(Val::Px(30.0), Val::Px(56.2)),
                                 ..default()
                             },
-                            image: asset_server.load("menus/back_arrow.png").into(),
+                            image: asset_server.load("menus/buttons/back_arrow.png").into(),
                             ..default()
                         },
                         BackButton,
@@ -119,44 +141,63 @@ fn create_settings_menu(mut commands: Commands, asset_server: Res<AssetServer>) 
                             ..default()
                         })
                         .with_children(|parent| {
-                            create_slider(&asset_server, parent, "Master volume", ());
-                            create_slider(&asset_server, parent, "Music volume", ());
-                            create_slider(&asset_server, parent, "SFX volume", ());
+                            create_slider(
+                                &asset_server,
+                                parent,
+                                "Master volume",
+                                MasterVolumeSlider,
+                            );
+                            create_slider(&asset_server, parent, "Music volume", MusicVolumeSlider);
+                            create_slider(&asset_server, parent, "SFX volume", SFXVolumeSlider);
                         });
                 });
         });
 }
 
-fn interact_back_button(
-    mut button_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<BackButton>),
-    >,
-    mut commands: Commands,
+fn update_slider_data<Data: Resource, Slider: Component + SliderDataController<Data>>(
+    mut slider: Query<&mut SliderHandle, (Changed<SliderHandle>, With<Slider>)>,
+    mut slider_controlling_data: ResMut<Data>,
 ) {
-    let Ok((interaction, mut background_color)) = button_query.get_single_mut() else {
-        return;
-    };
-
-    match *interaction {
-        Interaction::Clicked => {
-            commands.insert_resource(NextState(Some(SettingsState::Closed)));
-        }
-        Interaction::Hovered => {
-            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 1.0));
-        }
-        Interaction::None => {
-            *background_color = BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 0.8));
+    if let Ok(mut data) = slider.get_single_mut() {
+        if data.just_created {
+            data.position = Slider::load_data(&slider_controlling_data);
+            data.just_created = false;
+        } else {
+            Slider::save_data(&mut slider_controlling_data, data.position);
         }
     }
 }
 
-fn despawn_settings_menu(
-    mut commmands: Commands,
-    settings_menu: Query<Entity, With<SettingsMenu>>,
-) {
+impl SliderDataController<GameAudioSettings> for MasterVolumeSlider {
+    fn load_data(data: &GameAudioSettings) -> f32 {
+        data.master as f32
+    }
+    fn save_data(data: &mut GameAudioSettings, position: f32) {
+        data.master = position.into();
+    }
+}
+
+impl SliderDataController<GameAudioSettings> for SFXVolumeSlider {
+    fn load_data(data: &GameAudioSettings) -> f32 {
+        data.sfx as f32
+    }
+    fn save_data(data: &mut GameAudioSettings, position: f32) {
+        data.sfx = position.into();
+    }
+}
+
+impl SliderDataController<GameAudioSettings> for MusicVolumeSlider {
+    fn load_data(data: &GameAudioSettings) -> f32 {
+        data.music as f32
+    }
+    fn save_data(data: &mut GameAudioSettings, position: f32) {
+        data.music = position.into();
+    }
+}
+
+fn despawn_settings_menu(mut commands: Commands, settings_menu: Query<Entity, With<SettingsMenu>>) {
     if let Ok(settings_entity) = settings_menu.get_single() {
-        commmands.entity(settings_entity).despawn_recursive();
+        commands.entity(settings_entity).despawn_recursive();
     }
 }
 
@@ -166,15 +207,12 @@ impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(create_settings_menu.in_schedule(OnEnter(SettingsState::Open)))
             .add_system(despawn_settings_menu.in_schedule(OnEnter(SettingsState::Closed)))
-            .add_system(interact_back_button)
+            .add_systems((
+                interact_button::interact_system::<BackButton>,
+                update_slider_data::<GameAudioSettings, MasterVolumeSlider>,
+                update_slider_data::<GameAudioSettings, SFXVolumeSlider>,
+                update_slider_data::<GameAudioSettings, MusicVolumeSlider>,
+            ))
             .add_plugin(InputPlugin);
-        //     .add_systems(
-        //         (
-        //             interact_exit_button,
-        //             interact_play_button,
-        //             interact_settings_button,
-        //         )
-        //             .in_set(OnUpdate(AppState::MainMenu)),
-        //     );
     }
 }

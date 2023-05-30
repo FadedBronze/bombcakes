@@ -24,7 +24,7 @@ fn spawn_rocket_launcher(
             .spawn((
                 RocketLauncher { power: 800.0 },
                 SpriteBundle {
-                    texture: asset_server.load("rocket_launcher.png"),
+                    texture: asset_server.load("weapons/rocket_launcher/rocket_launcher.png"),
                     sprite: Sprite {
                         anchor: Anchor::Custom(Vec2::new(0.0, 1.0)),
                         ..default()
@@ -122,7 +122,7 @@ fn rocket_launcher_shoots(
         commands.spawn((
             Rocket,
             SpriteBundle {
-                texture: asset_server.load("rocket.png"),
+                texture: asset_server.load("weapons/rocket_launcher/rocket.png"),
                 transform: Transform {
                     translation: Vec3::new(
                         rocket_launcher_holder_transform.translation.x + direction.x * 100.0,
